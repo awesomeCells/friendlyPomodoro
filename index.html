@@ -154,23 +154,23 @@
         function updateUI() {
             const m = Math.floor(timeLeft / 60);
             const s = timeLeft % 60;
-            const mStr = m.toString().padStart(2, '0');
-            const sStr = s.toString().padStart(2, '0');
             
-            minDisplay.textContent = mStr;
-            secDisplay.textContent = sStr;
+            minDisplay.textContent = m.toString().padStart(2, '0');
+            secDisplay.textContent = s.toString().padStart(2, '0');
 
-            document.title = `${mStr}:${sStr} - Pomodoro`;
+            document.title = `${minDisplay.textContent}:${secDisplay.textContent} - Pomodoro`;
+
+            body.classList.remove('phase-work', 'phase-short', 'phase-long');
 
             if (phase === 'work') {
                 phaseLabel.textContent = "Focus Time";
-                body.className = "phase-work min-h-screen flex items-center justify-center p-6";
+                body.classList.add('phase-work');
                 cycleDesc.textContent = `Session ${cycleIndex + 1} of 4`;
                 extendBtn.classList.add('hidden');
             } else {
                 const isLong = cycleIndex === 3;
                 phaseLabel.textContent = isLong ? "Deep Rest" : "Short Break";
-                body.className = isLong ? "phase-long min-h-screen flex items-center justify-center p-6" : "phase-short min-h-screen flex items-center justify-center p-6";
+                body.classList.add(isLong ? 'phase-long' : 'phase-short');
                 cycleDesc.textContent = isLong ? "Set Complete" : "Refresh & Breathe";
                 extendBtn.classList.remove('hidden');
             }
@@ -189,13 +189,8 @@
                 }
             }
 
-            if (isRunning) {
-                playIcon.classList.add('hidden');
-                pauseIcon.classList.remove('hidden');
-            } else {
-                playIcon.classList.remove('hidden');
-                pauseIcon.classList.add('hidden');
-            }
+            playIcon.classList.toggle('hidden', isRunning);
+            pauseIcon.classList.toggle('hidden', !isRunning);
         }
 
         function playChime() {
@@ -225,6 +220,7 @@
 
         function toggleTimer() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
             if (isRunning) {
                 clearInterval(timerId);
                 timeLeft = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
@@ -233,19 +229,32 @@
                 isRunning = true;
                 endTime = Date.now() + (timeLeft * 1000);
                 timerId = setInterval(() => {
-                    const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
-                    if (remaining !== timeLeft) {
-                        timeLeft = remaining;
-                        updateUI();
-                    }
-                    if (timeLeft <= 0) {
-                        clearInterval(timerId);
-                        handleNext();
+                    const now = Date.now();
+                    
+                    if (now >= endTime) {
                         playChime();
-                        if (isRunning) {
-                            endTime = Date.now() + (timeLeft * 1000);
-                            toggleTimer(); 
-                            isRunning = true; 
+                        
+                        // Handles immediate transitions and extreme background drift
+                        while (now >= endTime) {
+                            if (phase === 'work') {
+                                phase = 'break';
+                                timeLeft = (cycleIndex === 3) ? LONG_BREAK : SHORT_BREAK;
+                            } else {
+                                phase = 'work';
+                                cycleIndex = (cycleIndex + 1) % 4;
+                                timeLeft = WORK_TIME;
+                            }
+                            // Append exact time to maintain continuous perfect accuracy
+                            endTime += (timeLeft * 1000);
+                        }
+                        
+                        timeLeft = Math.ceil((endTime - now) / 1000);
+                        updateUI();
+                    } else {
+                        const remaining = Math.ceil((endTime - now) / 1000);
+                        if (remaining !== timeLeft) {
+                            timeLeft = remaining;
+                            updateUI();
                         }
                     }
                 }, 100);
@@ -262,8 +271,6 @@
         }
 
         function handleNext() {
-            const wasRunning = isRunning;
-            if (wasRunning) clearInterval(timerId);
             if (phase === 'work') {
                 phase = 'break';
                 timeLeft = (cycleIndex === 3) ? LONG_BREAK : SHORT_BREAK;
@@ -272,18 +279,11 @@
                 cycleIndex = (cycleIndex + 1) % 4;
                 timeLeft = WORK_TIME;
             }
-            if (wasRunning) {
-                endTime = Date.now() + (timeLeft * 1000);
-                isRunning = false;
-                toggleTimer();
-            } else {
-                updateUI();
-            }
+            if (isRunning) endTime = Date.now() + (timeLeft * 1000);
+            updateUI();
         }
 
         function handlePrev() {
-            const wasRunning = isRunning;
-            if (wasRunning) clearInterval(timerId);
             if (phase === 'break') {
                 phase = 'work';
                 timeLeft = WORK_TIME;
@@ -296,13 +296,8 @@
                     timeLeft = WORK_TIME;
                 }
             }
-            if (wasRunning) {
-                endTime = Date.now() + (timeLeft * 1000);
-                isRunning = false;
-                toggleTimer();
-            } else {
-                updateUI();
-            }
+            if (isRunning) endTime = Date.now() + (timeLeft * 1000);
+            updateUI();
         }
 
         function resetApp() {
