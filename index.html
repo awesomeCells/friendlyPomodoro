@@ -22,8 +22,14 @@
         .phase-long { background-color: #eff6ff; } /* Pastel Blue */
         
         .timer-text {
+            /* tabular-nums ensures digits have equal width */
             font-variant-numeric: tabular-nums;
             font-weight: 300;
+            /* Using a monospace fallback for the timer to ensure perfect stability */
+            font-family: 'Quicksand', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            display: inline-block;
+            min-width: 320px; /* Prevents the container from shifting */
+            text-align: center;
         }
 
         .cycle-dot {
@@ -60,7 +66,7 @@
         </div>
 
         <!-- Timer Display -->
-        <div class="relative">
+        <div class="relative flex justify-center items-center">
             <div class="timer-text text-8xl text-gray-800 py-4" id="timer-display">
                 25:00
             </div>
